@@ -38,25 +38,35 @@ app.get('/songs', (req, res) => {
     });
 });
 // Handle DELETE request to delete a song
-app.delete('/delete/:songName', (req, res) => {
+app.delete('/delete/:songName', async (req, res) => {
     const songName = req.params.songName;
-    songsRef.once('value', (snapshot) => {
-        snapshot.forEach((childSnapshot) => {
-            const song = childSnapshot.val();
-            if (song.name === songName) {
-                childSnapshot.ref.remove()
-                    .then(() => {
-                        res.sendStatus(200); // Send success response
-                    })
-                    .catch((error) => {
-                        res.status(500).send('Error deleting song from database: ' + error.message);
-                    });
-            }
+
+    // First, delete the song entry from the database
+    try {
+        await songsRef.orderByChild('name').equalTo(songName).once('value', async (snapshot) => {
+            snapshot.forEach(async (childSnapshot) => {
+                const song = childSnapshot.val();
+                const songId = childSnapshot.key;
+                // Remove the song entry from the database
+                await songsRef.child(songId).remove();
+            });
         });
-    }, (error) => {
-        res.status(500).send('Error fetching songs from database: ' + error.message);
-    });
+    } catch (error) {
+        return res.status(500).send('Error deleting song from database: ' + error.message);
+    }
+
+    // Then, delete the corresponding file from storage
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(songName);
+
+    try {
+        await file.delete(); // Delete the file from storage
+        res.sendStatus(200); // Send success response
+    } catch (error) {
+        return res.status(500).send('Error deleting song from storage: ' + error.message);
+    }
 });
+
 
 // Handle song upload
 app.post('/upload', upload.single('songFile'), async (req, res) => {
