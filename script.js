@@ -37,6 +37,26 @@ app.get('/songs', (req, res) => {
         res.status(500).send('Error fetching songs from database: ' + error.message);
     });
 });
+// Handle DELETE request to delete a song
+app.delete('/delete/:songName', (req, res) => {
+    const songName = req.params.songName;
+    songsRef.once('value', (snapshot) => {
+        snapshot.forEach((childSnapshot) => {
+            const song = childSnapshot.val();
+            if (song.name === songName) {
+                childSnapshot.ref.remove()
+                    .then(() => {
+                        res.sendStatus(200); // Send success response
+                    })
+                    .catch((error) => {
+                        res.status(500).send('Error deleting song from database: ' + error.message);
+                    });
+            }
+        });
+    }, (error) => {
+        res.status(500).send('Error fetching songs from database: ' + error.message);
+    });
+});
 
 // Handle song upload
 app.post('/upload', upload.single('songFile'), async (req, res) => {
