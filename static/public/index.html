@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Song</title>
+</head>
+<body>
+  <h1>Upload Song</h1>
+  <form action="/upload" method="POST" enctype="multipart/form-data">
+    <label for="songName">Song Name:</label>
+    <input type="text" id="songName" name="songName"><br><br>
+    <label for="songWriter">Song Writer:</label>
+    <input type="text" id="songWriter" name="songWriter"><br><br>
+    <input type="file" name="songFile">
+    <button type="submit">Upload</button>
+  </form>
+
+  <h2>Uploaded Songs</h2>
+  <ul id="songList"></ul>
+
+  <script>
+    // Function to fetch uploaded songs from Firebase Realtime Database
+    function fetchSongs() {
+      fetch('/songs')
+        .then(response => response.json())
+        .then(data => {
+          const songList = document.getElementById('songList');
+          songList.innerHTML = '';
+          data.forEach(song => {
+            const listItem = document.createElement('li');
+            listItem.textContent = `${song.name} - by ${song.writer}`;
+            songList.appendChild(listItem);
+          });
+        })
+        .catch(error => console.error('Error fetching songs:', error));
+    }
+
+    // Fetch uploaded songs when the page loads
+    fetchSongs();
+  </script>
+</body>
+</html>
