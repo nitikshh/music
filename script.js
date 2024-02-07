@@ -15,7 +15,7 @@ admin.initializeApp({
 
 // Initialize Firebase Realtime Database
 const db = admin.database();
-const songsRef = db.ref('bestsongs');
+const songsRef = db.ref('songs');
 
 // Set up Multer for handling file uploads
 const storage = multer.memoryStorage();
@@ -41,29 +41,24 @@ app.get('/songs', (req, res) => {
 app.delete('/delete/:songName', async (req, res) => {
     const songName = req.params.songName;
 
-    // First, delete the song entry from the database
     try {
+        // First, delete the song entry from the database
         await songsRef.orderByChild('name').equalTo(songName).once('value', async (snapshot) => {
             snapshot.forEach(async (childSnapshot) => {
-                const song = childSnapshot.val();
                 const songId = childSnapshot.key;
                 // Remove the song entry from the database
                 await songsRef.child(songId).remove();
             });
         });
-    } catch (error) {
-        return res.status(500).send('Error deleting song from database: ' + error.message);
-    }
 
-    // Then, delete the corresponding file from storage
-    const bucket = admin.storage().bucket();
-    const file = bucket.file(songName);
-
-    try {
+        // Then, delete the corresponding file from storage
+        const bucket = admin.storage().bucket();
+        const file = bucket.file(songName);
         await file.delete(); // Delete the file from storage
+
         res.sendStatus(200); // Send success response
     } catch (error) {
-        return res.status(500).send('Error deleting song from storage: ' + error.message);
+        return res.status(500).send('Error deleting song: ' + error.message);
     }
 });
 
@@ -75,7 +70,7 @@ app.post('/upload', upload.single('songFile'), async (req, res) => {
     }
 
     // Get form data
-    const { songName, songWriter } = req.body;
+    const { songName, songWriter, songType } = req.body; // Add songType
     const fileData = req.file.buffer.toString('base64');
     const fileName = req.file.originalname;
 
@@ -103,7 +98,7 @@ app.post('/upload', upload.single('songFile'), async (req, res) => {
                     res.status(500).send('Error getting download URL: ' + err.message);
                 } else {
                     // Save song details to Firebase Realtime Database
-                    songsRef.push({ name: songName, writer: songWriter, url: songUrl }, (error) => {
+                    songsRef.push({ name: songName, writer: songWriter, type: songType, url: songUrl }, (error) => {
                         if (error) {
                             res.status(500).send('Error saving song to database.');
                         } else {
@@ -120,6 +115,7 @@ app.post('/upload', upload.single('songFile'), async (req, res) => {
         res.status(500).send('Error uploading file to storage: ' + error.message);
     }
 });
+
 
 // Serve the index.html file for the root path
 app.get('/', (req, res) => {
