@@ -37,7 +37,7 @@ app.get('/songs', (req, res) => {
         res.status(500).send('Error fetching songs from database: ' + error.message);
     });
 });
-// Handle DELETE request to delete a song
+// Handle DELETE request to delete a song and its image
 app.delete('/delete/:songName', async (req, res) => {
     const songName = req.params.songName;
 
@@ -51,10 +51,11 @@ app.delete('/delete/:songName', async (req, res) => {
             });
         });
 
-        // Then, delete the corresponding file from storage
+        // Then, delete the corresponding song file and image from storage
         const bucket = admin.storage().bucket();
-        const file = bucket.file(songName);
-        await file.delete(); // Delete the file from storage
+        const songFile = bucket.file(songName);
+        const songImage = bucket.file(songName + '_image'); // Assuming song image file name is same as song name with _image suffix
+        await Promise.all([songFile.delete(), songImage.delete()]); // Delete both files concurrently
 
         res.sendStatus(200); // Send success response
     } catch (error) {
@@ -62,55 +63,55 @@ app.delete('/delete/:songName', async (req, res) => {
     }
 });
 
-
 // Handle song upload
-app.post('/upload', upload.single('songFile'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+app.post('/upload', upload.fields([{ name: 'songFile', maxCount: 1 }, { name: 'songImage', maxCount: 1 }]), async (req, res) => {
+    if (!req.files || !req.files.songFile || !req.files.songImage) {
+        return res.status(400).send('Both song file and image must be uploaded.');
     }
 
     // Get form data
     const { songName, songWriter, songType } = req.body; // Add songType
-    const fileData = req.file.buffer.toString('base64');
-    const fileName = req.file.originalname;
+    const songFile = req.files.songFile[0];
+    const songImage = req.files.songImage[0];
 
     try {
-        // Upload file to Firebase Storage
+        // Upload song file to Firebase Storage
         const bucket = admin.storage().bucket();
-        const file = bucket.file(fileName);
-        const fileStream = file.createWriteStream({
+        const songFileStream = bucket.file(songFile.originalname).createWriteStream({
             metadata: {
-                contentType: req.file.mimetype,
+                contentType: songFile.mimetype,
             }
         });
+        songFileStream.end(songFile.buffer);
 
-        fileStream.on('error', (error) => {
-            res.status(500).send('Error uploading file to storage: ' + error.message);
+        // Get the download URL for the song file
+        const songUrl = await bucket.file(songFile.originalname).getSignedUrl({
+            action: 'read',
+            expires: '03-09-2491', // Adjust expiration date as needed
         });
 
-        fileStream.on('finish', () => {
-            // Get the download URL for the file
-            file.getSignedUrl({
-                action: 'read',
-                expires: '03-09-2491', // Adjust expiration date as needed
-            }, (err, songUrl) => {
-                if (err) {
-                    res.status(500).send('Error getting download URL: ' + err.message);
-                } else {
-                    // Save song details to Firebase Realtime Database
-                    songsRef.push({ name: songName, writer: songWriter, type: songType, url: songUrl }, (error) => {
-                        if (error) {
-                            res.status(500).send('Error saving song to database.');
-                        } else {
-                            res.status(200).send('Song uploaded successfully.');
-                        }
-                    });
-                }
-            });
+        // Upload song image to Firebase Storage
+        const songImageStream = bucket.file(songImage.originalname).createWriteStream({
+            metadata: {
+                contentType: songImage.mimetype,
+            }
+        });
+        songImageStream.end(songImage.buffer);
+
+        // Get the download URL for the song image
+        const songImageUrl = await bucket.file(songImage.originalname).getSignedUrl({
+            action: 'read',
+            expires: '03-09-2491', // Adjust expiration date as needed
         });
 
-        fileStream.end(req.file.buffer);
-
+        // Save song details to Firebase Realtime Database
+        songsRef.push({ name: songName, writer: songWriter, type: songType, url: songUrl[0], imageUrl: songImageUrl[0] }, (error) => {
+            if (error) {
+                res.status(500).send('Error saving song to database.');
+            } else {
+                res.status(200).send('Song uploaded successfully.');
+            }
+        });
     } catch (error) {
         res.status(500).send('Error uploading file to storage: ' + error.message);
     }
