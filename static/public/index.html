@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Upload Song</title>
 </head>
+
 <body>
   <h1>Upload Song</h1>
   <form id="uploadForm" enctype="multipart/form-data">
@@ -18,11 +20,14 @@
       <option value="TopHits">Top Hits</option>
       <option value="BestOf2023">Best Of 2023</option>
       <option value="BestForYou">Best For You</option>
-      <!-- Add more options as needed -->
     </select><br><br>
-    <input type="file" id="songFile" name="songFile">
+    <label for="songFile">Song File:</label>
+    <input type="file" id="songFile" name="songFile"><br><br>
+    <label for="songImage">Song Image:</label>
+    <input type="file" id="songImage" name="songImage"><br><br>
     <button type="button" onclick="uploadSong()">Upload</button>
   </form>
+
   <progress id="progressBar" value="0" max="100"></progress>
 
   <h2>Uploaded Songs</h2>
@@ -37,7 +42,7 @@
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/upload');
 
-      xhr.upload.onprogress = function(event) {
+      xhr.upload.onprogress = function (event) {
         if (event.lengthComputable) {
           const percentComplete = (event.loaded / event.total) * 100;
           progressBar.value = percentComplete;
@@ -46,7 +51,7 @@
         }
       };
 
-      xhr.onload = function() {
+      xhr.onload = function () {
         if (xhr.status === 200) {
           alert('Song uploaded successfully.');
           fetchSongs(); // Refresh the song list after upload
@@ -55,7 +60,7 @@
         }
       };
 
-      xhr.onerror = function() {
+      xhr.onerror = function () {
         console.error('Error uploading song:', xhr.statusText);
       };
 
@@ -72,7 +77,7 @@
           data.forEach(song => {
             const listItem = document.createElement('li');
             listItem.textContent = `${song.name} - by ${song.writer}`;
-            
+
             // Add delete button
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Delete';
@@ -106,4 +111,5 @@
     fetchSongs();
   </script>
 </body>
+
 </html>
