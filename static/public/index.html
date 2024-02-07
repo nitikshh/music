@@ -7,19 +7,61 @@
 </head>
 <body>
   <h1>Upload Song</h1>
-  <form action="/upload" method="POST" enctype="multipart/form-data">
+  <form id="uploadForm" enctype="multipart/form-data">
     <label for="songName">Song Name:</label>
     <input type="text" id="songName" name="songName"><br><br>
     <label for="songWriter">Song Writer:</label>
     <input type="text" id="songWriter" name="songWriter"><br><br>
-    <input type="file" name="songFile">
-    <button type="submit">Upload</button>
+    <label for="songType">Song Type:</label>
+    <select id="songType" name="songType">
+      <option value="TopRated">Top Rated</option>
+      <option value="Pop">Pop</option>
+      <option value="Jazz">Jazz</option>
+      <option value="Classical">Classical</option>
+      <!-- Add more options as needed -->
+    </select><br><br>
+    <input type="file" id="songFile" name="songFile">
+    <button type="button" onclick="uploadSong()">Upload</button>
   </form>
+  <progress id="progressBar" value="0" max="100"></progress>
 
   <h2>Uploaded Songs</h2>
   <ul id="songList"></ul>
 
   <script>
+    function uploadSong() {
+      const form = document.getElementById('uploadForm');
+      const formData = new FormData(form);
+      const progressBar = document.getElementById('progressBar');
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/upload');
+
+      xhr.upload.onprogress = function(event) {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          progressBar.value = percentComplete;
+        } else {
+          progressBar.value += 1;
+        }
+      };
+
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          alert('Song uploaded successfully.');
+          fetchSongs(); // Refresh the song list after upload
+        } else {
+          console.error('Error uploading song:', xhr.statusText);
+        }
+      };
+
+      xhr.onerror = function() {
+        console.error('Error uploading song:', xhr.statusText);
+      };
+
+      xhr.send(formData);
+    }
+
     // Function to fetch uploaded songs from Firebase Realtime Database
     function fetchSongs() {
       fetch('/songs')
