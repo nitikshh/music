@@ -64,15 +64,16 @@ app.delete('/delete/:songName', async (req, res) => {
 });
 
 // Handle song upload
-app.post('/upload', upload.fields([{ name: 'songFile', maxCount: 1 }, { name: 'songImage', maxCount: 1 }]), async (req, res) => {
-    if (!req.files || !req.files.songFile || !req.files.songImage) {
-        return res.status(400).send('Both song file and image must be uploaded.');
+app.post('/upload', upload.fields([{ name: 'songFile', maxCount: 1 }, { name: 'songImage', maxCount: 1 }, { name: 'vttFile', maxCount: 1 }]), async (req, res) => {
+    if (!req.files || !req.files.songFile || !req.files.songImage || !req.files.vttFile) {
+        return res.status(400).send('Song file, image, and VTT file must be uploaded.');
     }
 
     // Get form data
     const { songName, songWriter, songType } = req.body; // Add songType
     const songFile = req.files.songFile[0];
     const songImage = req.files.songImage[0];
+    const vttFile = req.files.vttFile[0];
 
     try {
         // Upload song file to Firebase Storage
@@ -104,8 +105,22 @@ app.post('/upload', upload.fields([{ name: 'songFile', maxCount: 1 }, { name: 's
             expires: '03-09-2491', // Adjust expiration date as needed
         });
 
+        // Upload VTT file to Firebase Storage
+        const vttFileStream = bucket.file(vttFile.originalname).createWriteStream({
+            metadata: {
+                contentType: vttFile.mimetype,
+            }
+        });
+        vttFileStream.end(vttFile.buffer);
+
+        // Get the download URL for the VTT file
+        const vttUrl = await bucket.file(vttFile.originalname).getSignedUrl({
+            action: 'read',
+            expires: '03-09-2491', // Adjust expiration date as needed
+        });
+
         // Save song details to Firebase Realtime Database
-        songsRef.push({ name: songName, writer: songWriter, type: songType, url: songUrl[0], imageUrl: songImageUrl[0] }, (error) => {
+        songsRef.push({ name: songName, writer: songWriter, type: songType, url: songUrl[0], imageUrl: songImageUrl[0], vttUrl: vttUrl[0] }, (error) => {
             if (error) {
                 res.status(500).send('Error saving song to database.');
             } else {
@@ -113,9 +128,10 @@ app.post('/upload', upload.fields([{ name: 'songFile', maxCount: 1 }, { name: 's
             }
         });
     } catch (error) {
-        res.status(500).send('Error uploading file to storage: ' + error.message);
+        res.status(500).send('Error uploading files to storage: ' + error.message);
     }
 });
+
 
 
 // Serve the index.html file for the root path
